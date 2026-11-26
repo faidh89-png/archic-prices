@@ -116,6 +116,11 @@ function show(r){
   tag.innerHTML = '<div class="code">' + esc(r[0]) + '</div><div class="name">' + esc(r[1]) + '</div>' +
     (r[2] > 0 ? '<div class="price">' + fmt(r[2]) + '<small>د.ع</small></div>' : '<div class="price" style="font-size:24px">السعر غير محدد</div>') +
     (/^[0-9]+$/.test(r[3]) ? '<a class="stock" target="_blank" rel="noopener" href="https://books.zoho.com/app/903193448#/inventory/items/' + r[3] + '">تحقق من العدد في المخزن</a>' : '');
+  const sb = tag.querySelector('a.stock');
+  if (sb) sb.addEventListener('click', () => {
+    try { navigator.clipboard.writeText(r[0]); } catch (e) {}
+    say('تم نسخ الكود ' + r[0] + '. إذا فتح زوهو على الصفحة الرئيسية، ادخل على المواد (Items) والصق الكود في البحث.');
+  });
   void tag.offsetWidth; tag.classList.add('flash');
 }
 function lookup(code){
