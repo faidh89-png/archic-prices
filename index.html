@@ -41,7 +41,7 @@ h1{font-size:30px;line-height:1.05;margin:4px 0 4px;font-weight:700}
 .tag .name{margin:6px 0 14px;font-size:16px;direction:ltr;text-align:start;unicode-bidi:plaintext;overflow-wrap:anywhere}
 .tag .price{font-size:clamp(40px,12vw,56px);line-height:1;font-weight:700;white-space:nowrap}
 .tag .price small{font-size:20px;font-weight:600;color:var(--mut);margin-inline-start:6px}
-.tag .stock{display:flex;align-items:center;justify-content:center;width:100%;margin-top:16px;min-height:48px;border:1px solid var(--acc);border-radius:12px;background:none;color:var(--acc);font:600 16px inherit;cursor:pointer}
+.tag .stock{display:flex;align-items:center;justify-content:center;width:100%;text-decoration:none;margin-top:16px;min-height:48px;border:1px solid var(--acc);border-radius:12px;background:none;color:var(--acc);font:600 16px inherit;cursor:pointer}
 .qbox{margin-top:12px;border-top:1px solid var(--line)}
 .qrow{display:flex;justify-content:space-between;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line);font-size:16px}
 .qrow b{font-size:18px;white-space:nowrap}
@@ -101,7 +101,7 @@ function iqd(v){ return v > 0 ? Math.round(v) : 0; }
 async function load(){
   try {
     const a = await fetch('items.json?t=' + Date.now(), {cache: 'no-store'}).then(r => r.json());
-    DATA = a.items.map(r => [String(r[0]), String(r[1]), iqd(Number(r[2])), String(r[3] || ''), Array.isArray(r[4]) ? r[4].map(Number) : [0,0,0]]);
+    DATA = a.items.map(r => [String(r[0]), String(r[1]), iqd(Number(r[2])), String(r[3] || '')]);
     UPD = a.updated || '';
     map = new Map(DATA.map(r => [r[0].toUpperCase(), r]));
     $('foot').textContent = 'الأسعار بالدينار العراقي. آخر تحديث: ' + (a.updated || '');
@@ -112,20 +112,10 @@ async function load(){
 }
 
 function show(r){
-  const locs = ['المخزن الرئيسي', 'مخزن الكرادة', 'مخزن المنصور'];
-  const q = r[4] || [0,0,0], tot = q.reduce((a, b) => a + (b || 0), 0);
   tag.className = 'tag';
   tag.innerHTML = '<div class="code">' + esc(r[0]) + '</div><div class="name">' + esc(r[1]) + '</div>' +
     (r[2] > 0 ? '<div class="price">' + fmt(r[2]) + '<small>د.ع</small></div>' : '<div class="price" style="font-size:24px">السعر غير محدد</div>') +
-    '<button type="button" class="stock" id="stockBtn" aria-expanded="false">تحقق من العدد في المخزن</button>' +
-    '<div class="qbox" id="qbox" hidden>' +
-      locs.map((l, i) => '<div class="qrow"><span>' + l + '</span><b>' + fmt(q[i] || 0) + '</b></div>').join('') +
-      '<div class="qrow tot"><span>المجموع</span><b>' + fmt(tot) + '</b></div>' +
-      '<div class="qnote">حسب آخر تحديث: ' + esc(UPD) + '</div>' +
-      (/^[0-9]+$/.test(r[3]) ? '<a class="qlink" target="_blank" rel="noopener" href="https://books.zoho.com/app/903193448#/inventory/items/' + r[3] + '">فتح المادة في زوهو بوكس</a>' : '') +
-    '</div>';
-  const b = $('stockBtn'), box = $('qbox');
-  b.addEventListener('click', () => { box.hidden = !box.hidden; b.setAttribute('aria-expanded', String(!box.hidden)); b.textContent = box.hidden ? 'تحقق من العدد في المخزن' : 'إخفاء العدد'; });
+    (/^[0-9]+$/.test(r[3]) ? '<a class="stock" target="_blank" rel="noopener" href="https://books.zoho.com/app/903193448#/inventory/items/' + r[3] + '">تحقق من العدد في المخزن</a>' : '');
   void tag.offsetWidth; tag.classList.add('flash');
 }
 function lookup(code){
