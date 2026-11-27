@@ -51,6 +51,10 @@ h1{font-size:30px;line-height:1.05;margin:4px 0 4px;font-weight:700}
 .tag .co{display:inline-block;margin-bottom:6px;padding:2px 10px;border-radius:999px;background:var(--line);font-size:13px;font-weight:600}
 .tag .card+.card{margin-top:18px;padding-top:18px;border-top:1px dashed var(--line)}
 .res .co{font-size:12px;color:var(--mut);font-weight:600}
+.tag .qty{margin-top:10px;font-size:15px;color:var(--mut)}
+.tag .qty.in b{color:#0a7a4a}
+.tag .qty.out b{color:#b3261e}
+.tag .locs{font-size:13px;margin-top:4px}
 .tag.empty{color:var(--mut);text-align:center;padding:30px 20px}
 .tag.empty::before{display:none}
 @media (prefers-reduced-motion:no-preference){.tag.flash{animation:f .45s ease-out}@keyframes f{from{transform:scale(.97);opacity:.5}to{transform:none;opacity:1}}}
@@ -104,7 +108,7 @@ function iqd(v){ return v > 0 ? Math.round(v) : 0; }
 async function load(){
   try {
     const a = await fetch('items_karrada.json?t=' + Date.now(), {cache: 'no-store'}).then(r => r.json());
-    DATA = a.items.map(r => [String(r[0]), String(r[1]), iqd(Number(r[2])), String(r[3] || ''), String(r[4] || '')]);
+    DATA = a.items.map(r => [String(r[0]), String(r[1]), iqd(Number(r[2])), String(r[3] || ''), String(r[4] || ''), String(r[5] || '')]);
     UPD = a.updated || '';
     map = new Map();
     for (const r of DATA) { const k = r[0].toUpperCase(); if (!map.has(k)) map.set(k, []); map.get(k).push(r); }
@@ -117,11 +121,30 @@ async function load(){
 
 const HOST = 'D';
 const ORG = {A: ['903193448', 'آرتشيك'], D: ['758931561', 'دايلوكس']};
+const LIVE = 'https://zoho-prices.archic-prices.workers.dev';
 function card(r){
   const o = ORG[r[3]] || ORG.A;
-  return '<div class="card"><div class="co">مادة ' + o[1] + '</div><div class="code">' + esc(r[0]) + '</div><div class="name">' + esc(r[1]) + '</div>' +
-    (r[2] > 0 ? '<div class="price">' + fmt(r[2]) + '<small>د.ع</small></div>' : '<div class="price" style="font-size:24px">السعر غير محدد</div>') +
-    (/^[0-9]+$/.test(r[4]) ? '<a class="stock" target="_blank" rel="noopener" data-c="' + esc(r[0]) + '" href="https://books.zoho.com/app/' + o[0] + '#/inventory/items/' + r[4] + '">تحقق من العدد في زوهو ' + o[1] + '</a>' : '') + '</div>';
+  return '<div class="card" data-o="' + esc(r[3]) + '" data-oid="' + esc(r[4]) + '" data-pid="' + esc(r[5] || '') + '"><div class="co">مادة ' + o[1] + '</div><div class="code">' + esc(r[0]) + '</div><div class="name">' + esc(r[1]) + '</div>' +
+    '<div class="price">' + (r[2] > 0 ? fmt(r[2]) + '<small>د.ع</small>' : '<span style="font-size:24px">السعر غير محدد</span>') + '</div>' +
+    '<div class="qty">جارٍ جلب العدد من زوهو…</div>' +
+    (/^[0-9]+$/.test(r[4]) ? '<a class="stock" target="_blank" rel="noopener" data-c="' + esc(r[0]) + '" href="https://books.zoho.com/app/' + o[0] + '#/inventory/items/' + r[4] + '">فتح المادة في زوهو ' + o[1] + '</a>' : '') + '</div>';
+}
+async function live(org, id){
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 8000);
+  try { const r = await fetch(LIVE + '/item?org=' + org + '&id=' + id, {signal: ctl.signal}); const j = await r.json(); return j.error ? null : j; }
+  catch (e) { return null; } finally { clearTimeout(t); }
+}
+async function refresh(el){
+  const o = el.dataset.o, oid = el.dataset.oid, pid = el.dataset.pid, q = el.querySelector('.qty'), pr = el.querySelector('.price');
+  const pj = /^[0-9]+$/.test(pid) ? live(HOST, pid) : Promise.resolve(null);
+  const sj = /^[0-9]+$/.test(oid) ? (o === HOST && oid === pid ? pj : live(o, oid)) : Promise.resolve(null);
+  const [p, s] = await Promise.all([pj, sj]);
+  if (p && p.price > 0) pr.innerHTML = fmt(p.price) + '<small>د.ع</small>';
+  if (s && s.stock !== null && s.stock !== undefined) {
+    const locs = (s.locations || []).filter(l => l.qty);
+    q.innerHTML = 'العدد في المخزن: <b>' + fmt(s.stock) + '</b>' + (locs.length ? '<div class="locs">' + locs.map(l => esc(l.name) + ': ' + fmt(l.qty)).join(' · ') + '</div>' : '');
+    q.className = 'qty' + (s.stock > 0 ? ' in' : ' out');
+  } else q.textContent = p || s ? 'العدد غير متاح لهذه المادة.' : 'تعذّر الاتصال بزوهو. السعر المعروض من آخر تحديث.';
 }
 function show(list){
   tag.className = 'tag';
@@ -131,7 +154,17 @@ function show(list){
     try { navigator.clipboard.writeText(c); } catch (e) {}
     say('تم نسخ الكود ' + c + '. إذا فتح زوهو على الصفحة الرئيسية، ادخل على المواد (Items) والصق الكود في البحث.');
   }));
+  tag.querySelectorAll('.card').forEach(refresh);
   void tag.offsetWidth; tag.classList.add('flash');
+}
+async function findLive(raw){
+  const at = raw.startsWith('@'), k = raw.replace(/^@+/, '');
+  const OTHER = HOST === 'A' ? 'D' : 'A';
+  const get = async (org, code) => { try { const r = await fetch(LIVE + '/find?org=' + org + '&code=' + encodeURIComponent(code)); const j = await r.json(); return j.items || []; } catch (e) { return []; } };
+  const [own, hostAt, other] = await Promise.all([at ? [] : get(HOST, k), get(HOST, '@' + k), get(OTHER, k)]);
+  const rows = own.map(x => [k, x.name, x.price, HOST, x.id, x.id]);
+  for (const x of hostAt) rows.push([k, x.name.replace(/^@/, ''), x.price, OTHER, other[0] ? other[0].id : '', x.id]);
+  return rows;
 }
 function lookup(code){
   const raw = String(code || '').trim(), at = raw.startsWith('@');
@@ -139,8 +172,12 @@ function lookup(code){
   let r = map.get(k);
   if (r && at) { const o = r.filter(x => x[3] !== HOST); if (o.length) r = o; }
   if (r) { show(r); say(''); return true; }
-  tag.className = 'tag empty'; tag.textContent = 'الكود ' + k + ' غير موجود في القائمة.';
-  return false;
+  tag.className = 'tag empty'; tag.textContent = 'جارٍ البحث عن ' + k + ' في زوهو…';
+  findLive(raw).then(rows => {
+    if (rows.length) { show(rows); say(''); }
+    else { tag.className = 'tag empty'; tag.textContent = 'الكود ' + k + ' غير موجود في زوهو.'; }
+  });
+  return true;
 }
 
 /* live scanning */
