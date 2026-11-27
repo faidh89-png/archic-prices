@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b5d63">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="أسعار مواد الإنارة">
+<meta name="apple-mobile-web-app-title" content="أسعار شوروم المنصور">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
-<title>أسعار مواد الإنارة</title>
+<title>أسعار شوروم المنصور</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 /* VOICE: a showroom counter tool — fast, calm, no decoration
@@ -48,6 +48,9 @@ h1{font-size:30px;line-height:1.05;margin:4px 0 4px;font-weight:700}
 .qrow.tot{font-weight:700}
 .qnote{color:var(--mut);font-size:13px;margin-top:8px}
 .qlink{display:inline-block;margin-top:8px;color:var(--acc);font-size:14px}
+.tag .co{display:inline-block;margin-bottom:6px;padding:2px 10px;border-radius:999px;background:var(--line);font-size:13px;font-weight:600}
+.tag .card+.card{margin-top:18px;padding-top:18px;border-top:1px dashed var(--line)}
+.res .co{font-size:12px;color:var(--mut);font-weight:600}
 .tag.empty{color:var(--mut);text-align:center;padding:30px 20px}
 .tag.empty::before{display:none}
 @media (prefers-reduced-motion:no-preference){.tag.flash{animation:f .45s ease-out}@keyframes f{from{transform:scale(.97);opacity:.5}to{transform:none;opacity:1}}}
@@ -64,7 +67,7 @@ input[type=search]{width:100%;min-height:52px;padding:10px 14px;border:1px solid
 </head>
 <body>
 <main>
-  <h1>أسعار مواد الإنارة</h1>
+  <h1>أسعار شوروم المنصور</h1>
   <p class="sub">وجّه الكاميرا إلى الباركود ليظهر السعر.</p>
 
   <button class="btn" id="go" type="button">
@@ -100,31 +103,37 @@ function iqd(v){ return v > 0 ? Math.round(v) : 0; }
 
 async function load(){
   try {
-    const a = await fetch('items.json?t=' + Date.now(), {cache: 'no-store'}).then(r => r.json());
-    DATA = a.items.map(r => [String(r[0]), String(r[1]), iqd(Number(r[2])), String(r[3] || '')]);
+    const a = await fetch('items_mansour.json?t=' + Date.now(), {cache: 'no-store'}).then(r => r.json());
+    DATA = a.items.map(r => [String(r[0]), String(r[1]), iqd(Number(r[2])), String(r[3] || ''), String(r[4] || '')]);
     UPD = a.updated || '';
-    map = new Map(DATA.map(r => [r[0].toUpperCase(), r]));
-    $('foot').textContent = 'الأسعار بالدينار العراقي. آخر تحديث: ' + (a.updated || '');
+    map = new Map();
+    for (const r of DATA) { const k = r[0].toUpperCase(); if (!map.has(k)) map.set(k, []); map.get(k).push(r); }
+    $('foot').textContent = 'شوروم المنصور (آرتشيك) — الأسعار بالدينار العراقي. آخر تحديث: ' + (a.updated || '');
     say('');
   } catch (e) {
     say('تعذّر تحميل الأسعار. تأكد من الإنترنت ثم أعد فتح الصفحة.', true);
   }
 }
 
-function show(r){
-  tag.className = 'tag';
-  tag.innerHTML = '<div class="code">' + esc(r[0]) + '</div><div class="name">' + esc(r[1]) + '</div>' +
+const ORG = {A: ['903193448', 'آرتشيك'], D: ['758931561', 'دايلوكس']};
+function card(r){
+  const o = ORG[r[3]] || ORG.A;
+  return '<div class="card"><div class="co">مادة ' + o[1] + '</div><div class="code">' + esc(r[0]) + '</div><div class="name">' + esc(r[1]) + '</div>' +
     (r[2] > 0 ? '<div class="price">' + fmt(r[2]) + '<small>د.ع</small></div>' : '<div class="price" style="font-size:24px">السعر غير محدد</div>') +
-    (/^[0-9]+$/.test(r[3]) ? '<a class="stock" target="_blank" rel="noopener" href="https://books.zoho.com/app/903193448#/inventory/items/' + r[3] + '">تحقق من العدد في المخزن</a>' : '');
-  const sb = tag.querySelector('a.stock');
-  if (sb) sb.addEventListener('click', () => {
-    try { navigator.clipboard.writeText(r[0]); } catch (e) {}
-    say('تم نسخ الكود ' + r[0] + '. إذا فتح زوهو على الصفحة الرئيسية، ادخل على المواد (Items) والصق الكود في البحث.');
-  });
+    (/^[0-9]+$/.test(r[4]) ? '<a class="stock" target="_blank" rel="noopener" data-c="' + esc(r[0]) + '" href="https://books.zoho.com/app/' + o[0] + '#/inventory/items/' + r[4] + '">تحقق من العدد في زوهو ' + o[1] + '</a>' : '') + '</div>';
+}
+function show(list){
+  tag.className = 'tag';
+  tag.innerHTML = (list.length > 1 ? '<div class="msg">هذا الكود موجود في الشركتين:</div>' : '') + list.map(card).join('');
+  tag.querySelectorAll('a.stock').forEach(sb => sb.addEventListener('click', () => {
+    const c = sb.dataset.c;
+    try { navigator.clipboard.writeText(c); } catch (e) {}
+    say('تم نسخ الكود ' + c + '. إذا فتح زوهو على الصفحة الرئيسية، ادخل على المواد (Items) والصق الكود في البحث.');
+  }));
   void tag.offsetWidth; tag.classList.add('flash');
 }
 function lookup(code){
-  const k = String(code || '').trim().toUpperCase();
+  const k = String(code || '').trim().replace(/^@+/, '').toUpperCase();
   const r = map.get(k);
   if (r) { show(r); say(''); return true; }
   tag.className = 'tag empty'; tag.textContent = 'الكود ' + k + ' غير موجود في القائمة.';
@@ -226,13 +235,13 @@ $('photo').addEventListener('change', async e => {
 /* search */
 const res = $('res'), q = $('q');
 function search(){
-  const t = q.value.trim().toUpperCase();
+  const t = q.value.trim().replace(/^@+/, '').toUpperCase();
   if (!t) { res.innerHTML = ''; return; }
   const hits = [];
   for (const r of DATA) { if (r[0].toUpperCase().startsWith(t)) hits.push(r); if (hits.length >= 30) break; }
   if (hits.length < 30 && t.length >= 2) for (const r of DATA) { if (hits.length >= 30) break; if (!hits.includes(r) && (r[0].toUpperCase().includes(t) || r[1].toUpperCase().includes(t))) hits.push(r); }
   res.innerHTML = hits.length ? hits.map(r => '<li><button type="button" data-k="' + esc(r[0]) + '"><span class="c">' + esc(r[0]) + '</span><span class="p">' +
-    (r[2] > 0 ? fmt(r[2]) + ' د.ع' : '—') + '</span><span class="n">' + esc(r[1]) + '</span></button></li>').join('')
+    (r[2] > 0 ? fmt(r[2]) + ' د.ع' : '—') + '</span><span class="n"><span class="co">' + (ORG[r[3]] || ORG.A)[1] + ' · </span>' + esc(r[1]) + '</span></button></li>').join('')
     : '<li style="padding:14px 4px;color:var(--mut)">لا توجد نتائج.</li>';
 }
 q.addEventListener('input', search);
