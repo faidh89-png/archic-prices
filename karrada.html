@@ -115,6 +115,7 @@ async function load(){
   }
 }
 
+const HOST = 'D';
 const ORG = {A: ['903193448', 'آرتشيك'], D: ['758931561', 'دايلوكس']};
 function card(r){
   const o = ORG[r[3]] || ORG.A;
@@ -133,8 +134,10 @@ function show(list){
   void tag.offsetWidth; tag.classList.add('flash');
 }
 function lookup(code){
-  const k = String(code || '').trim().replace(/^@+/, '').toUpperCase();
-  const r = map.get(k);
+  const raw = String(code || '').trim(), at = raw.startsWith('@');
+  const k = raw.replace(/^@+/, '').toUpperCase();
+  let r = map.get(k);
+  if (r && at) { const o = r.filter(x => x[3] !== HOST); if (o.length) r = o; }
   if (r) { show(r); say(''); return true; }
   tag.className = 'tag empty'; tag.textContent = 'الكود ' + k + ' غير موجود في القائمة.';
   return false;
